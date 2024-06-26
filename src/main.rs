@@ -1,6 +1,6 @@
 use std::env;
-use std::fs::{self, OpenOptions};
-use std::io::{self, BufRead, BufReader, Write};
+use std::fs::{OpenOptions};
+use std::io::{BufRead, BufReader, Write};
 
 #[derive(Debug)]
 struct Task {
@@ -29,6 +29,7 @@ struct TaskManager {
 }
 
 impl TaskManager {
+    //create task manager
     fn new() -> TaskManager {
         TaskManager {
             tasks: Vec::new(),
@@ -36,12 +37,14 @@ impl TaskManager {
         }
     }
 
+    //add task
     fn add_task(&mut self, description: String) {
         let task = Task::new(self.next_id, description);
         self.tasks.push(task);
         self.next_id += 1;
     }
 
+    //list task
     fn list_tasks(&self) {
         for task in &self.tasks {
             println!("{:?}", task);
@@ -81,13 +84,52 @@ impl TaskManager {
 
         manager
     }
+
+    fn save_to_file(&self, filename: &str) {
+        let file = OpenOptions::new().write(true).truncate(true).create(true).open(filename);
+        
+        if let Ok(mut file) = file {
+            for task in &self.tasks {
+                let line = format!("{},{},{}\n", task.id, task.description, task.completed);
+                file.write_all(line.as_bytes()).unwrap();
+            }
+        }
+    }
 }
 
 fn main() {
-    let mut manager = TaskManager::new();
-    manager.add_task("Learn Rust".to_string());
-    manager.add_task("Build a CLI app".to_string());
-    manager.list_tasks();
-    manager.complete_task(1);
-    manager.list_tasks();
+    let args: Vec<String> = env::args().collect();
+    let mut manager = TaskManager::load_from_file("tasks.txt");
+
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "add" => {
+                if args.len() > 2 {
+                    let description = args[2..].join(" ");
+                    manager.add_task(description);
+                }
+            }
+            "list" => {
+                manager.list_tasks();
+            }
+            "complete" => {
+                if args.len() > 2 {
+                    if let Ok(id) = args[2].parse::<u32>() {
+                        manager.complete_task(id);
+                    }
+                }
+            }
+            _ => {
+                println!("Unknown command");
+            }
+        }
+    } else {
+        println!("Usage: todo_list <command> [arguments]");
+        println!("Commands:");
+        println!("  add <task description>");
+        println!("  list");
+        println!("  complete <task id>");
+    }
+
+    manager.save_to_file("tasks.txt");
 }
